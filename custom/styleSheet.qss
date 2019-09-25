@@ -1,7 +1,7 @@
 *{
     font-family: 微软雅黑;
-    color: #BBBBBB;
-    background-color: #2F2F2F;
+    color: #D4A943;
+    background-color: #0E0D06;
 }
 
 /* 设置目录树样式 */
@@ -9,16 +9,16 @@ QTreeView{
     show-decoration-selected: 1;
 }
 QTreeView::item{
-    height: 30px;
+    height: 35px;
 }
 QTreeView::item:hover, QTreeView::branch:hover{
-    background: #4B6EAF;
+    background: #874012;
 }
 QTreeView::item:selected, QTreeView::branch:selected{
-    background: #4B6EAF;
+    background: #874012;
 }
 QTreeView::branch{
-    color: #BBBBBB;
+    color: #D4A943;
 }
 QTreeView::branch:has-children:!has-siblings:closed,
 QTreeView::branch:closed:has-children:has-siblings {
@@ -34,19 +34,19 @@ QTreeView::branch:open:has-children:has-siblings  {
 /* 设置标签样式 */
 QLabel{
     font-size: 18px;
-    border: 1px solid #BBBBBB;
+    border: 1px solid #D4A943;
     border-width: 1px 1px 0px 1px;
 }
 
 /* 设置视图样式 */
 QGraphicsView{
-    border: 1px solid #BBBBBB;
+    border: 1px solid #D4A943;
     background-color: #444444;
 }
 
 /* 设置列表样式 */
 QListWidget::Item{
-    border: 1px solid #BBBBBB;
+    border: 1px solid #D4A943;
     font-size: 20px;
     background: #717678;
     color: #DDDDDD;

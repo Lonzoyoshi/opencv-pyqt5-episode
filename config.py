@@ -7,6 +7,7 @@ items = [
     GrayingItem,
     FilterItem,
     EqualizeItem,
+    MatchingItem,
     MorphItem,
     GradItem,
     ThresholdItem,
@@ -14,13 +15,17 @@ items = [
     ContourItem,
     HoughLineItem,
     LightItem,
-    GammaItem
+    GammaItem,
+    NoiseItem,
+    #RestoreItem
+    #OperationItem
 ]
 
 tables = [
     GrayingTableWidget,
     FilterTabledWidget,
     EqualizeTableWidget,
+    MatchingWidget,
     MorphTabledWidget,
     GradTabledWidget,
     ThresholdTableWidget,
@@ -28,7 +33,9 @@ tables = [
     ContourTableWidget,
     HoughLineTableWidget,
     LightTableWidget,
-    GammaITabelWidget
-
+    GammaITabelWidget,
+    NoiseWidget,
+    #RestoreWidget
+    #OperationWidget
 ]
 

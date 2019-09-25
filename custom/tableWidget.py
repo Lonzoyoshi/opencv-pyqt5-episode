@@ -1,3 +1,4 @@
+import cv2
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
@@ -25,6 +26,7 @@ class TableWidget(QTableWidget):
             combox.currentIndexChanged.connect(self.update_item)
         for checkbox in self.findChildren(QCheckBox):
             checkbox.stateChanged.connect(self.update_item)
+
 
     def update_item(self):
         param = self.get_params()
@@ -64,7 +66,8 @@ class FilterTabledWidget(TableWidget):
         super(FilterTabledWidget, self).__init__(parent=parent)
 
         self.kind_comBox = QComboBox()
-        self.kind_comBox.addItems(['均值滤波', '高斯滤波', '中值滤波'])
+        self.kind_comBox.addItems(['均值滤波', '高斯滤波', '中值滤波','Box滤波',
+                                   '低通滤波','高通滤波','增强','同态滤波','陷波滤波'])
         self.kind_comBox.setObjectName('kind')
 
         self.ksize_spinBox = QSpinBox()
@@ -72,12 +75,43 @@ class FilterTabledWidget(TableWidget):
         self.ksize_spinBox.setMinimum(1)
         self.ksize_spinBox.setSingleStep(2)
 
+        self.cutoff_spinbox = QDoubleSpinBox()
+        self.cutoff_spinbox.setObjectName('cutoff')
+        self.cutoff_spinbox.setMinimum(0.01)
+        self.cutoff_spinbox.setSingleStep(0.01)
+
+        self.cutoff_box = QSpinBox()
+        self.cutoff_box.setObjectName('cutoffSize')
+        self.cutoff_box.setMinimum(10)
+        self.cutoff_box.setSingleStep(10)
+
+        self.notch_x_box = QSpinBox()
+        self.notch_x_box.setObjectName('notch_x')
+        self.notch_x_box.setMinimum(-60)
+        self.notch_x_box.setMaximum(60)
+        self.notch_x_box.setSingleStep(10)
+
+        self.notch_y_box = QSpinBox()
+        self.notch_y_box.setObjectName('notch_y')
+        self.notch_y_box.setMinimum(-60)
+        self.notch_y_box.setMaximum(60)
+        self.notch_y_box.setSingleStep(10)
+
         self.setColumnCount(2)
-        self.setRowCount(2)
+        self.setRowCount(6)
         self.setItem(0, 0, QTableWidgetItem('类型'))
         self.setCellWidget(0, 1, self.kind_comBox)
         self.setItem(1, 0, QTableWidgetItem('核大小'))
         self.setCellWidget(1, 1, self.ksize_spinBox)
+        self.setItem(2, 0, QTableWidgetItem('截止频率(0,0.5]'))
+        self.setCellWidget(2,1,self.cutoff_spinbox)
+        self.setItem(3,0,QTableWidgetItem('Cutoff尺寸(或陷波直径)'))
+        self.setCellWidget(3,1, self.cutoff_box)
+        self.setItem(4, 0, QTableWidgetItem('陷波x坐标'))
+        self.setCellWidget(4, 1, self.notch_x_box)
+        self.setItem(5, 0, QTableWidgetItem('陷波x坐标'))
+        self.setCellWidget(5, 1, self.notch_y_box)
+
 
         self.signal_connect()
 
@@ -292,7 +326,6 @@ class HoughLineTableWidget(TableWidget):
         self.setCellWidget(2, 1, self.max_gap_spinbox)
         self.signal_connect()
 
-
 class LightTableWidget(TableWidget):
     def __init__(self, parent=None):
         super(LightTableWidget, self).__init__(parent=parent)
@@ -332,3 +365,127 @@ class GammaITabelWidget(TableWidget):
         self.setItem(0, 0, QTableWidgetItem('gamma'))
         self.setCellWidget(0, 1, self.gamma_spinbox)
         self.signal_connect()
+
+
+class MatchingWidget(TableWidget):
+    def __init__(self, parent=None):
+        super(MatchingWidget, self).__init__(parent=parent)
+        self.selection_box = QDialogButtonBox()
+        self.selection_box.setObjectName('pushed1')
+        self.selected_img = None
+
+        self.select_button = QPushButton('选择图片')
+        self.select_button.clicked.connect(self.refImg)
+        self.select_button.setObjectName('pushed2')
+
+        self.setColumnCount(2)
+        self.setRowCount(1)
+        self.setItem(0, 0, QTableWidgetItem('参考图'))
+        self.setCellWidget(0, 1, self.selection_box)
+        self.selection_box.addButton(self.select_button,QDialogButtonBox.ActionRole)
+
+        self.signal_connect()
+
+    def signal_connect(self):
+        for spinbox in self.findChildren(QSpinBox):
+            spinbox.valueChanged.connect(self.update_item)
+        for doublespinbox in self.findChildren(QDoubleSpinBox):
+            doublespinbox.valueChanged.connect(self.update_item)
+        for combox in self.findChildren(QComboBox):
+            combox.currentIndexChanged.connect(self.update_item)
+        for checkbox in self.findChildren(QCheckBox):
+            checkbox.stateChanged.connect(self.update_item)
+        for button in self.findChildren(QPushButton):
+            button.clicked.connect(self.update_item)
+        current_item = self.mainwindow.useListWidget.currentItem()
+        if current_item is not None:
+            current_item.update_params()
+        else:
+            print("None")
+    def update_params(self, param=None):
+        for key in param.keys():
+            box = self.findChild(QWidget, name=key)
+            if isinstance(box, QSpinBox) or isinstance(box, QDoubleSpinBox):
+                box.setValue(param[key])
+            elif isinstance(box, QComboBox):
+                box.setCurrentIndex(param[key])
+            elif isinstance(box, QCheckBox):
+                box.setChecked(param[key])
+            elif isinstance(box, QPushButton):
+                button_state = param[key]
+                if isinstance(button_state, bool):
+                    box.setChecked(button_state)
+
+    def get_params(self):
+        param = {}
+        for spinbox in self.findChildren(QSpinBox):
+            param[spinbox.objectName()] = spinbox.value()
+        for doublespinbox in self.findChildren(QDoubleSpinBox):
+            param[doublespinbox.objectName()] = doublespinbox.value()
+        for combox in self.findChildren(QComboBox):
+            param[combox.objectName()] = combox.currentIndex()
+        for combox in self.findChildren(QCheckBox):
+            param[combox.objectName()] = combox.isChecked()
+        for button in self.findChildren(QPushButton):
+            param[button.objectName()] = button.isChecked()
+            if self.selected_img is not None:
+                param['refImg'] = self.selected_img
+        return param
+
+    def refImg(self):
+        # 打开文件对话框让用户选择图片
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "选择图片", "",
+                                                   "Images (*.png *.xpm *.jpg *.jpeg);;All Files (*)", options=options)
+        if file_name:
+            self.selected_img = file_name
+
+
+class NoiseWidget(TableWidget):
+    def __init__(self, parent=None):
+        super(NoiseWidget, self).__init__(parent=parent)
+        self.noise_comBox = QComboBox()
+        self.noise_comBox.addItems(['高斯噪声', '椒盐噪声', '动态模糊'])
+        self.noise_comBox.setObjectName('noise')
+
+        self.mean_spinbox = QSpinBox()
+        self.mean_spinbox.setObjectName('mean')
+        self.mean_spinbox.setMinimum(0)
+        self.mean_spinbox.setSingleStep(5)
+
+        self.variance_spinbox = QSpinBox()
+        self.variance_spinbox.setObjectName('variance')
+        self.variance_spinbox.setMinimum(0)
+        self.variance_spinbox.setSingleStep(100)
+
+        self.salt_spinbox = QDoubleSpinBox()
+        self.salt_spinbox.setObjectName('saltProb')
+        self.salt_spinbox.setMinimum(0.0)
+        self.salt_spinbox.setMaximum(1.0)
+        self.salt_spinbox.setSingleStep(0.1)
+
+        self.pepper_spinbox = QDoubleSpinBox()
+        self.pepper_spinbox.setObjectName('pepperProb')
+        self.pepper_spinbox.setMinimum(0.0)
+        self.pepper_spinbox.setMaximum(1.0)
+        self.pepper_spinbox.setSingleStep(0.1)
+
+        self.ksize_spinBox = QSpinBox()
+        self.ksize_spinBox.setObjectName('ksize')
+        self.ksize_spinBox.setMinimum(1)
+        self.ksize_spinBox.setSingleStep(2)
+
+        self.setColumnCount(2)
+        self.setRowCount(6)
+        self.setItem(0, 0, QTableWidgetItem('类型'))
+        self.setCellWidget(0, 1, self.noise_comBox)
+        self.setItem(1, 0, QTableWidgetItem('高斯均值'))
+        self.setCellWidget(1, 1, self.mean_spinbox)
+        self.setItem(2, 0, QTableWidgetItem('高斯方差'))
+        self.setCellWidget(2, 1, self.variance_spinbox)
+        self.setItem(3, 0, QTableWidgetItem('盐率'))
+        self.setCellWidget(3, 1, self.salt_spinbox)
+        self.setItem(4, 0, QTableWidgetItem('椒率'))
+        self.setCellWidget(4, 1, self.pepper_spinbox)
+        self.setItem(5, 0, QTableWidgetItem('核大小'))
+        self.setCellWidget(5, 1, self.ksize_spinBox)

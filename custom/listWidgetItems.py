@@ -1,8 +1,12 @@
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
+import skimage.filters
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QIcon, QColor
-from PyQt5.QtWidgets import QListWidgetItem, QPushButton
+from PyQt5.QtWidgets import QListWidgetItem, QPushButton, QFileDialog
 from flags import *
+from skimage import filters, restoration
 
 
 class MyItem(QListWidgetItem):
@@ -24,9 +28,10 @@ class MyItem(QListWidgetItem):
                 self.__setattr__('_' + k, v)
 
 
+
 class GrayingItem(MyItem):
     def __init__(self, parent=None):
-        super(GrayingItem, self).__init__(' 灰度化 ', parent=parent)
+        super(GrayingItem, self).__init__('灰度化', parent=parent)
         self._mode = BGR2GRAY_COLOR
 
     def __call__(self, img):
@@ -38,10 +43,14 @@ class GrayingItem(MyItem):
 class FilterItem(MyItem):
 
     def __init__(self, parent=None):
-        super().__init__('平滑处理', parent=parent)
+        super().__init__('滤波器', parent=parent)
         self._ksize = 3
         self._kind = MEAN_FILTER
         self._sigmax = 0
+        self._cutoff = 0.01
+        self._cutoffSize = 10
+        self._notch_x = 0
+        self._notch_y = 0
 
     def __call__(self, img):
         if self._kind == MEAN_FILTER:
@@ -50,6 +59,61 @@ class FilterItem(MyItem):
             img = cv2.GaussianBlur(img, (self._ksize, self._ksize), self._sigmax)
         elif self._kind == MEDIAN_FILTER:
             img = cv2.medianBlur(img, self._ksize)
+        elif self._kind == BOX_FILTER:
+            img = cv2.boxFilter(img, -1, (self._ksize, self._ksize))
+        elif self._kind == LOW_PASS:
+            img = img.astype(np.float32) / 255.0
+            img = filters.butterworth(img, self._cutoff, False)
+            img = np.clip(img * 255, 0, 255).astype(np.uint8)
+        elif self._kind == HIGH_PASS:
+            img = img.astype(np.float32) / 255.0
+            img = filters.butterworth(img, self._cutoff, True)
+            img = np.clip(img * 255, 0, 255).astype(np.uint8)
+        elif self._kind == LAPLACIAN_ENHANCE:
+            kernel1 = np.array([[1, 1, 1], [1, -8, 1], [1, 1, 1]])
+            laplacian = cv2.filter2D(img, cv2.CV_64F, kernel1)
+            laplacian = cv2.convertScaleAbs(laplacian)
+            sharpened = cv2.addWeighted(img, 1.5, laplacian, -0.5, 0)
+            img = sharpened
+        elif self._kind == HOMO_FILTER:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = np.float64(gray)
+            rows, cols = gray.shape
+            r1 = 0.5
+            rh = 2
+            c = 4
+            h = 2.0
+            l = 0.5
+            gray_fft = np.fft.fft2(gray)
+            gray_fftshift = np.fft.fftshift(gray_fft)
+            dst_fftshift = np.zeros_like(gray_fftshift)
+            M, N = np.meshgrid(np.arange(-cols // 2, cols // 2), np.arange(-rows // 2, rows // 2))
+            D = np.sqrt(M ** 2 + N ** 2)
+            Z = (rh - r1) * (1 - np.exp(-c * (D ** 2 / self._cutoffSize ** 2))) + r1
+            dst_fftshift = Z * gray_fftshift
+            dst_fftshift = (h - l) * dst_fftshift + l
+            dst_ifftshift = np.fft.ifftshift(dst_fftshift)
+            dst_ifft = np.fft.ifft2(dst_ifftshift)
+            dst = np.real(dst_ifft)
+            dst = np.uint8(np.clip(dst, 0, 255))
+            img = dst
+        elif self._kind == NOTCH_FILTER:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = np.float64(gray)
+            rows, cols = gray.shape
+            crow, ccol = rows // 2, cols // 2
+            notch_centers = [(ccol + self._notch_x, crow + self._notch_y), (ccol - self._notch_x, crow - self._notch_y)]
+            mask = np.ones((rows, cols), np.float32)
+            for center in notch_centers:
+                cv2.circle(mask, center, self._cutoffSize, 0, thickness=-1)
+            f = np.fft.fft2(gray)
+            fshift = np.fft.fftshift(f)
+            fshift_filtered = fshift * mask
+            img_back = np.fft.ifft2(np.fft.ifftshift(fshift_filtered))
+            dst = np.real(img_back)
+            dst = np.uint8(np.clip(dst, 0, 255))
+            img = dst
+
         return img
 
 
@@ -69,9 +133,8 @@ class MorphItem(MyItem):
 
 
 class GradItem(MyItem):
-
     def __init__(self, parent=None):
-        super().__init__('图像梯度', parent=parent)
+        super().__init__('梯度', parent=parent)
         self._kind = SOBEL_GRAD
         self._ksize = 3
         self._dx = 1
@@ -154,7 +217,7 @@ class ContourItem(MyItem):
 
 class EqualizeItem(MyItem):
     def __init__(self, parent=None):
-        super().__init__(' 均衡化 ', parent=parent)
+        super().__init__('均衡化', parent=parent)
         self._blue = True
         self._green = True
         self._red = True
@@ -168,7 +231,6 @@ class EqualizeItem(MyItem):
         if self._red:
             r = cv2.equalizeHist(r)
         return cv2.merge((b, g, r))
-
 
 class HoughLineItem(MyItem):
     def __init__(self, parent=None):
@@ -189,7 +251,6 @@ class HoughLineItem(MyItem):
             for x1, y1, x2, y2 in line:
                 img = cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), thickness=2)
         return img
-
 
 class LightItem(MyItem):
     def __init__(self, parent=None):
@@ -212,3 +273,62 @@ class GammaItem(MyItem):
         gamma_table = [np.power(x / 255.0, self._gamma) * 255.0 for x in range(256)]
         gamma_table = np.round(np.array(gamma_table)).astype(np.uint8)
         return cv2.LUT(img, gamma_table)
+
+
+class MatchingItem(MyItem):
+    def __init__(self, parent=None):
+        super(MatchingItem, self).__init__('直方图匹配', parent=parent)
+        self._refImg = None
+        self._pushed1 = False
+        self._pushed2 = False
+
+    def __call__(self, img):
+        if self._refImg is not None:
+            print(self._refImg, self._pushed1, self._pushed2)
+            self._refImg = cv2.imread(self._refImg)
+            img = img.astype(np.float32) / 255.0
+            self._refImg = self._refImg.astype(np.float32) / 255.0
+            if img.shape != self._refImg.shape:
+                self._refImg = skimage.transform.resize(self._refImg, img.shape, anti_aliasing=True)
+            result = skimage.exposure.match_histograms(img, self._refImg)
+            result = np.clip(result * 255, 0, 255).astype(np.uint8)
+            return result
+        else:
+            return img
+
+
+class NoiseItem(MyItem):
+    def __init__(self, parent=None):
+        super(NoiseItem, self).__init__('噪声生成', parent=parent)
+        self._ksize = 3
+        self._noise = GAUSSIAN_NOISE
+        self._mean = 0
+        self._variance = 500
+        self._saltProb = 0.1
+        self._pepperProb = 0.1
+
+    def __call__(self, img):
+        if self._noise == GAUSSIAN_NOISE:
+            sigma = self._variance ** 0.5
+            gaussianNoise = np.random.normal(self._mean, sigma, img.shape)
+            noise_img = np.clip(img + gaussianNoise, 0, 255).astype(np.uint8)
+            img = noise_img
+        elif self._noise == SALT_AND_PEPPER:
+            noisy = np.copy(img)
+            totalPixels = img.size
+            num_salt = np.ceil(self._saltProb * totalPixels)
+            coords = [np.random.randint(0, i - 1, int(num_salt)) for i in img.shape]
+            noisy[coords[0], coords[1]] = 1
+            num_pepper = np.ceil(self._pepperProb * totalPixels)
+            coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in img.shape]
+            noisy[coords[0], coords[1]] = 0
+            img = noisy
+        elif self._noise == MOTION_BLUR:
+            kernel = np.zeros((self._ksize, self._ksize))
+            kernel[int((self._ksize - 1) / 2), :] = np.ones(self._ksize)
+            kernel /= self._ksize
+            motioned = cv2.filter2D(img, -1, kernel)
+            img = motioned
+        return img
+
+
