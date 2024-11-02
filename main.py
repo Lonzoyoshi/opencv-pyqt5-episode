@@ -1,5 +1,6 @@
 import sys
 import cv2
+import numpy as np
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -18,10 +19,12 @@ class MyApp(QMainWindow):
         self.action_right_rotate = QAction(QIcon("icons/右旋转.png"), "向右旋转90", self)
         self.action_left_rotate = QAction(QIcon("icons/左旋转.png"), "向左旋转90°", self)
         self.action_histogram = QAction(QIcon("icons/直方图.png"), "直方图", self)
+        self.action_spectrum = QAction(QIcon("icons/spectrum.png"),"频谱图",self)
         self.action_right_rotate.triggered.connect(self.right_rotate)
         self.action_left_rotate.triggered.connect(self.left_rotate)
         self.action_histogram.triggered.connect(self.histogram)
-        self.tool_bar.addActions((self.action_left_rotate, self.action_right_rotate, self.action_histogram))
+        self.action_spectrum.triggered.connect(self.spectrum)
+        self.tool_bar.addActions((self.action_left_rotate, self.action_right_rotate, self.action_histogram, self.action_spectrum))
 
         self.useListWidget = UsedListWidget(self)
         self.funcListWidget = FuncListWidget(self)
@@ -95,6 +98,30 @@ class MyApp(QMainWindow):
             plt.plot(range(256), histr, color=col)
             plt.xlim([0, 256])
         plt.show()
+
+    def spectrum(self):
+        if self.cur_img is not None:
+            cur_img = cv2.cvtColor(self.cur_img, cv2.COLOR_BGR2RGB)
+            b_channel, g_channel, r_channel = cv2.split(cur_img)
+            mag_spectra = []
+            for channel in [b_channel, g_channel, r_channel]:
+                img_float = np.float32(channel)
+                f = cv2.dft(img_float, flags=cv2.DFT_COMPLEX_OUTPUT)
+                fshift = np.fft.fftshift(f)
+                mag, _ = cv2.cartToPolar(fshift[:, :, 0], fshift[:, :, 1])
+                mag += 1e-10  # 避免对数为零
+                mag = 20 * np.log(mag)
+                mag_normalized = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                mag_spectra.append(mag_normalized)
+            magnitude_image = cv2.merge(mag_spectra)
+            plt.imshow(magnitude_image)
+            plt.xticks([])  # 去掉坐标轴刻度
+            plt.yticks([])
+            plt.title('Magnitude Spectrum of Color Image')
+            plt.show()
+
+        else:
+            print("图像加载失败，请检查路径和格式。")
 
 
 if __name__ == "__main__":

@@ -456,7 +456,7 @@ class NoiseWidget(TableWidget):
         self.variance_spinbox = QSpinBox()
         self.variance_spinbox.setObjectName('variance')
         self.variance_spinbox.setMinimum(0)
-        self.variance_spinbox.setMaximum(1000)
+        self.variance_spinbox.setMaximum(2000)
         self.variance_spinbox.setSingleStep(100)
 
         self.salt_spinbox = QDoubleSpinBox()
@@ -492,3 +492,107 @@ class NoiseWidget(TableWidget):
         self.setCellWidget(5, 1, self.ksize_spinBox)
 
         self.signal_connect()
+
+
+class RestoreWidget(TableWidget):
+    def __init__(self, parent=None):
+        super(RestoreWidget, self).__init__(parent=parent)
+        self.noise_comBox = QComboBox()
+        self.noise_comBox.addItems(['算术均值', '几何均值', '自适应局部降噪滤波',
+                                    '中值滤波','修正的阿尔法均值滤波','自适应中值滤波',
+                                    '反卷积','维纳滤波'])
+        self.noise_comBox.setObjectName('choice')
+
+        self.ksize_spinBox = QSpinBox()
+        self.ksize_spinBox.setObjectName('ksize')
+        self.ksize_spinBox.setMinimum(1)
+        self.ksize_spinBox.setSingleStep(2)
+
+        self.setColumnCount(2)
+        self.setRowCount(2)
+        self.setItem(0, 0, QTableWidgetItem('类型'))
+        self.setCellWidget(0, 1, self.noise_comBox)
+        self.setItem(1, 0, QTableWidgetItem('核大小'))
+        self.setCellWidget(1, 1, self.ksize_spinBox)
+
+        self.signal_connect()
+
+class OperationWidget(TableWidget):
+    def __init__(self, parent=None):
+        super(OperationWidget, self).__init__(parent=parent)
+        self.choice_comBox = QComboBox()
+        self.choice_comBox.addItems(['加法', '减法', '乘法','除法'])
+        self.choice_comBox.setObjectName('choice')
+
+        self.selection_box = QDialogButtonBox()
+        self.selection_box.setObjectName('pushed1')
+        self.selected_img = None
+
+        self.select_button = QPushButton('选择图片')
+        self.select_button.clicked.connect(self.refImg)
+        self.select_button.setObjectName('pushed2')
+
+        self.setColumnCount(2)
+        self.setRowCount(2)
+        self.setItem(0, 0, QTableWidgetItem('相运算的图片'))
+        self.setCellWidget(0, 1, self.selection_box)
+        self.selection_box.addButton(self.select_button, QDialogButtonBox.ActionRole)
+        self.setItem(1, 0, QTableWidgetItem('运算方式'))
+        self.setCellWidget(1, 1, self.choice_comBox)
+
+        self.signal_connect()
+
+    def signal_connect(self):
+        for spinbox in self.findChildren(QSpinBox):
+            spinbox.valueChanged.connect(self.update_item)
+        for doublespinbox in self.findChildren(QDoubleSpinBox):
+            doublespinbox.valueChanged.connect(self.update_item)
+        for combox in self.findChildren(QComboBox):
+            combox.currentIndexChanged.connect(self.update_item)
+        for checkbox in self.findChildren(QCheckBox):
+            checkbox.stateChanged.connect(self.update_item)
+        for button in self.findChildren(QPushButton):
+            button.clicked.connect(self.update_item)
+        current_item = self.mainwindow.useListWidget.currentItem()
+        if current_item is not None:
+            current_item.update_params()
+        else:
+            print("None")
+
+    def update_params(self, param=None):
+        for key in param.keys():
+            box = self.findChild(QWidget, name=key)
+            if isinstance(box, QSpinBox) or isinstance(box, QDoubleSpinBox):
+                box.setValue(param[key])
+            elif isinstance(box, QComboBox):
+                box.setCurrentIndex(param[key])
+            elif isinstance(box, QCheckBox):
+                box.setChecked(param[key])
+            elif isinstance(box, QPushButton):
+                button_state = param[key]
+                if isinstance(button_state, bool):
+                    box.setChecked(button_state)
+
+    def get_params(self):
+        param = {}
+        for spinbox in self.findChildren(QSpinBox):
+            param[spinbox.objectName()] = spinbox.value()
+        for doublespinbox in self.findChildren(QDoubleSpinBox):
+            param[doublespinbox.objectName()] = doublespinbox.value()
+        for combox in self.findChildren(QComboBox):
+            param[combox.objectName()] = combox.currentIndex()
+        for combox in self.findChildren(QCheckBox):
+            param[combox.objectName()] = combox.isChecked()
+        for button in self.findChildren(QPushButton):
+            param[button.objectName()] = button.isChecked()
+            if self.selected_img is not None:
+                param['refImg'] = self.selected_img
+        return param
+
+    def refImg(self):
+        # 打开文件对话框让用户选择图片
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "选择图片", "",
+                                                   "Images (*.png *.xpm *.jpg *.jpeg);;All Files (*)", options=options)
+        if file_name:
+            self.selected_img = file_name

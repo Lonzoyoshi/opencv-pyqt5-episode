@@ -17,8 +17,8 @@ items = [
     LightItem,
     GammaItem,
     NoiseItem,
-    #RestoreItem
-    #OperationItem
+    RestoreItem,
+    OperationItem
 ]
 
 tables = [
@@ -35,7 +35,7 @@ tables = [
     LightTableWidget,
     GammaITabelWidget,
     NoiseWidget,
-    #RestoreWidget
-    #OperationWidget
+    RestoreWidget,
+    OperationWidget
 ]
 

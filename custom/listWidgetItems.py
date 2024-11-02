@@ -28,7 +28,6 @@ class MyItem(QListWidgetItem):
                 self.__setattr__('_' + k, v)
 
 
-
 class GrayingItem(MyItem):
     def __init__(self, parent=None):
         super(GrayingItem, self).__init__('灰度化', parent=parent)
@@ -232,6 +231,7 @@ class EqualizeItem(MyItem):
             r = cv2.equalizeHist(r)
         return cv2.merge((b, g, r))
 
+
 class HoughLineItem(MyItem):
     def __init__(self, parent=None):
         super(HoughLineItem, self).__init__('直线检测', parent=parent)
@@ -251,6 +251,7 @@ class HoughLineItem(MyItem):
             for x1, y1, x2, y2 in line:
                 img = cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), thickness=2)
         return img
+
 
 class LightItem(MyItem):
     def __init__(self, parent=None):
@@ -331,4 +332,149 @@ class NoiseItem(MyItem):
             img = motioned
         return img
 
+
+class RestoreItem(MyItem):
+    def __init__(self, parent=None):
+        super(RestoreItem, self).__init__('修复图像', parent=parent)
+        self._ksize = 1
+        self._choice = GAUSSIAN_NOISE
+
+    def __call__(self, img):
+        if self._choice == ARITHMETRIC_MEAN:
+            kSize = (self._ksize, self._ksize)
+            kernalMean = np.ones(kSize, np.float32) / (kSize[0] * kSize[1])
+            imgAriMean = cv2.filter2D(img, -1, kernalMean)
+            img = imgAriMean
+        elif self._choice == GEOMETRICMEAN:
+            image = img.astype(np.float32)
+            rows, cols, channels = image.shape
+            output = np.zeros_like(image)
+            pad_size = self._ksize // 2
+            padded_image = np.pad(image, pad_width=((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='reflect')
+            for c in range(channels):
+                for i in range(rows):
+                    for j in range(cols):
+                        neighborhood = padded_image[i:i + self._ksize, j:j + self._ksize, c]
+                        positive_values = neighborhood[neighborhood > 0]
+                        if positive_values.size > 0:
+                            geometric_mean = np.exp(np.sum(np.log(positive_values)) / positive_values.size)
+                        else:
+                            geometric_mean = 0
+                        output[i, j, c] = geometric_mean
+            output = np.clip(output, 0, 255)
+            img = output.astype(np.uint8)
+        elif self._choice == ADAPTIVE_LOCAL:
+            adpative_local = cv2.fastNlMeansDenoising(img, None, 30, 7, 21)
+            img = adpative_local
+        elif self._choice == MEDIAN_RESTORE:
+            img = cv2.medianBlur(img, self._ksize)
+        elif self._choice == MODIFIED_ALPHA:
+            image = img.astype(np.float32)
+            pad_size = self._ksize // 2
+            padded_image = np.pad(image, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='reflect')
+            output_image = np.zeros_like(image)
+            kernel = np.ones((self._ksize, self._ksize)) / (self._ksize * self._ksize)
+            for i in range(image.shape[0]):
+                for j in range(image.shape[1]):
+                    alpha = 0.5
+                    window = padded_image[i:i + self._ksize, j:j + self._ksize]
+                    local_value = image[i, j]
+                    weights = 1 / (1 + alpha * np.abs(window - local_value))
+                    weighted_sum = np.sum(weights * window, axis=(0, 1))
+                    normalization_factor = np.sum(weights)
+                    output_image[i, j] = weighted_sum / normalization_factor
+
+            img = np.clip(output_image, 0, 255).astype(np.uint8)
+        elif self._choice == ADAPTIVE_MEDIAN:
+            if img.ndim != 3 or img.shape[2] != 3:
+                raise ValueError("Input image must be a color image with 3 channels.")
+            hImg, wImg, channels = img.shape
+            smax = 5
+            m, n = smax, smax
+            hPad = int((m - 1) / 2)
+            wPad = int((n - 1) / 2)
+            imgPad = np.pad(img.copy(), ((hPad, m - hPad - 1), (wPad, n - wPad - 1), (0, 0)), mode="edge")
+            imgAdaMedFilter = np.zeros_like(img)
+            for c in range(channels):
+                for i in range(hPad, hPad + hImg):
+                    for j in range(wPad, wPad + wImg):
+                        ksize = 5
+                        k = int(ksize / 2)
+                        pad = imgPad[i - k:i + k + 1, j - k:j + k + 1, c]
+                        zxy = img[i - hPad, j - wPad, c]
+                        zmin = np.min(pad)
+                        zmed = np.median(pad)
+                        zmax = np.max(pad)
+                        if zmin < zmed < zmax:
+                            if zmin < zxy < zmax:
+                                imgAdaMedFilter[i - hPad, j - wPad, c] = zxy
+                            else:
+                                imgAdaMedFilter[i - hPad, j - wPad, c] = zmed
+                        else:
+                            while True:
+                                ksize += 2
+                                if zmin < zmed < zmax or ksize > smax:
+                                    break
+                                k = int(ksize / 2)
+                                pad = imgPad[i - k:i + k + 1, j - k:j + k + 1, c]
+                                zmed = np.median(pad)
+                                zmin = np.min(pad)
+                                zmax = np.max(pad)
+                            if zmin < zmed < zmax or ksize > smax:
+                                if zmin < zxy < zmax:
+                                    imgAdaMedFilter[i - hPad, j - wPad, c] = zxy
+                                else:
+                                    imgAdaMedFilter[i - hPad, j - wPad, c] = zmed
+            img = imgAdaMedFilter.astype(img.dtype)
+        elif self._choice == DECONVOLUTION:
+            num_iter = 30
+            kernel = np.ones((self._ksize, self._ksize)) / (self._ksize * self._ksize)
+            img = img.astype(np.float32) / 255.0
+            restored_img = np.zeros_like(img)
+            for i in range(img.shape[2]):
+                channel = img[:, :, i]
+                restored_channel = restoration.richardson_lucy(channel, kernel, num_iter=num_iter)
+                restored_img[:, :, i] = restored_channel
+            restored_img = np.clip(restored_img * 255.0, 0, 255).astype(np.uint8)
+            img = restored_img
+        elif self._choice == WIENER_FILTER:
+            img = img.astype(np.float32) / 255.0
+            kernel = np.ones((self._ksize, self._ksize)) / (self._ksize * self._ksize)
+            restored_img = np.zeros_like(img)
+            for i in range(img.shape[2]):
+                channel = img[:, :, i]
+                restored_channel = restoration.wiener(channel, kernel, balance=0.1)
+                restored_img[:, :, i] = restored_channel
+            restored_img = np.clip(restored_img, 0, 1)
+            restored_img = (restored_img * 255).astype(np.uint8)
+            img = restored_img
+        return img
+
+class OperationItem(MyItem):
+    def __init__(self, parent=None):
+        super(OperationItem, self).__init__('图像运算', parent=parent)
+        self._refImg = None
+        self._pushed1 = False
+        self._pushed2 = False
+        self._choice = ADD
+
+    def __call__(self, img):
+        if self._refImg is not None:
+            print(self._refImg, self._pushed1, self._pushed2)
+            self._refImg = cv2.imread(self._refImg)
+            img = img.astype(np.float32) / 255.0
+            self._refImg = self._refImg.astype(np.float32) / 255.0
+            self._refImg = skimage.transform.resize(self._refImg, img.shape, anti_aliasing=True)
+            if self._choice == ADD:
+                dst = cv2.add(src1=img, src2=self._refImg)
+            elif self._choice == SUBTRACT:
+                dst = cv2.subtract(src1=img, src2=self._refImg)
+            elif self._choice == MULTIPLE:
+                dst = cv2.multiply(src1=img, src2=self._refImg)
+            elif self._choice == DIVIDE:
+                dst = cv2.divide(src1=img, src2=self._refImg)
+            result = np.clip(dst * 255, 0, 255).astype(np.uint8)
+            return result
+        else:
+            return img
 

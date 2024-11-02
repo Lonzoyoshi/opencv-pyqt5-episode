@@ -112,3 +112,23 @@ ALL_CHANNEL = 3
 GAUSSIAN_NOISE=0
 SALT_AND_PEPPER=1
 MOTION_BLUR=2
+
+# 修复
+# '算术均值', '几何均值', '自适应局部降噪滤波',
+# '中值滤波','修正的阿尔法均值滤波','自适应中值滤波',
+# '反卷积','低通滤波后反卷积','维纳滤波'
+ARITHMETRIC_MEAN = 0
+GEOMETRICMEAN = 1
+ADAPTIVE_LOCAL = 2
+MEDIAN_RESTORE = 3
+MODIFIED_ALPHA = 4
+ADAPTIVE_MEDIAN = 5
+DECONVOLUTION = 6
+WIENER_FILTER = 7
+
+
+# 运算
+ADD = 0
+SUBTRACT = 1
+MULTIPLE = 2
+DIVIDE = 3
