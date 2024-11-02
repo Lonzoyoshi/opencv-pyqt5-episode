@@ -456,6 +456,7 @@ class NoiseWidget(TableWidget):
         self.variance_spinbox = QSpinBox()
         self.variance_spinbox.setObjectName('variance')
         self.variance_spinbox.setMinimum(0)
+        self.variance_spinbox.setMaximum(1000)
         self.variance_spinbox.setSingleStep(100)
 
         self.salt_spinbox = QDoubleSpinBox()
@@ -489,3 +490,5 @@ class NoiseWidget(TableWidget):
         self.setCellWidget(4, 1, self.pepper_spinbox)
         self.setItem(5, 0, QTableWidgetItem('核大小'))
         self.setCellWidget(5, 1, self.ksize_spinBox)
+
+        self.signal_connect()
