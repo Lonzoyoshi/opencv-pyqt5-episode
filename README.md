@@ -22,9 +22,28 @@
 * 伽马校正
 
 ## 2024/11/02 克隆仓库并加入课程设计需要内容
-### 图像平滑部分
-  添加了Box滤波，低通、高通滤波，拉普拉斯增强，同态滤波，陷波滤波
-### 增加直方图匹配
-### 增加噪声生成
+<div align=center>
 ![demo2.jpg](demo2.png)
+</div>
+### 图像平滑部分
+  添加了Box滤波，低通、高通滤波，拉普拉斯增强，同态滤波，陷波滤波   
+<div align=center>
+![test1.jpg](test1.png)
+</div>
+### 增加直方图匹配
+<div align=center>
+  ![test2.jpg](test2.png)
+</div>
+### 增加噪声生成
+<div align=center>
+  ![test3.jpg](test3.png)
+</div>
+
+## 2024/11/02 再增功能
+### 图像修复
+  ![test4.jpg](test4.png)
+### 图像运算
+  ![test5.jpg](test5.png)
+### 频谱图显示
+  ![test6.jpg](test6.png)
     
