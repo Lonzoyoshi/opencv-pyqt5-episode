@@ -5,37 +5,39 @@ from custom.listWidgetItems import *
 # Implemented functions
 items = [
     GrayingItem,
-    FilterItem,
-    EqualizeItem,
-    MatchingItem,
     MorphItem,
-    GradItem,
     ThresholdItem,
     EdgeItem,
     ContourItem,
     HoughLineItem,
+    FilterItem,
+    EqualizeItem,
+    MatchingItem,
+    GradItem,
     LightItem,
     GammaItem,
     NoiseItem,
     RestoreItem,
-    OperationItem
+    OperationItem,
+    RadonItem
 ]
 
 tables = [
     GrayingTableWidget,
-    FilterTabledWidget,
-    EqualizeTableWidget,
-    MatchingWidget,
     MorphTabledWidget,
-    GradTabledWidget,
     ThresholdTableWidget,
     EdgeTableWidget,
     ContourTableWidget,
     HoughLineTableWidget,
+    FilterTabledWidget,
+    EqualizeTableWidget,
+    MatchingWidget,
+    GradTabledWidget,
     LightTableWidget,
     GammaITabelWidget,
     NoiseWidget,
     RestoreWidget,
-    OperationWidget
+    OperationWidget,
+    RadonWidget
 ]
 

@@ -62,8 +62,11 @@ class FilterItem(MyItem):
             img = cv2.boxFilter(img, -1, (self._ksize, self._ksize))
         elif self._kind == LOW_PASS:
             img = img.astype(np.float32) / 255.0
-            img = filters.butterworth(img, self._cutoff, False)
-            img = np.clip(img * 255, 0, 255).astype(np.uint8)
+            filtered_img = np.zeros_like(img)
+            for i in range(3):  # 对 RGB 三个通道循环
+                filtered_img[:, :, i] = filters.butterworth(img[:, :, i], self._cutoff, False)
+            filtered_img = np.clip(filtered_img, 0, 1) * 255
+            img = filtered_img.astype(np.uint8)
         elif self._kind == HIGH_PASS:
             img = img.astype(np.float32) / 255.0
             img = filters.butterworth(img, self._cutoff, True)
@@ -478,3 +481,34 @@ class OperationItem(MyItem):
         else:
             return img
 
+class RadonItem(MyItem):
+    def __init__(self, parent=None):
+        super(RadonItem, self).__init__('拉东变换', parent=parent)
+        self._radon = 0
+        self._iradon = 0
+        self._sinogram = None
+        self._randonImg = None
+
+    def __call__(self, img):
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if self._radon==1 and self._iradon==0:
+            if self._randonImg is None:
+                image_padded = np.pad(image, ((100, 100), (100, 100)), mode='constant', constant_values=0)
+                image = image_padded.astype(np.float32) / 255.0
+                theta = np.linspace(0., 180., max(image.shape), endpoint=False)
+                sinogram = skimage.transform.radon(image, theta=theta)
+                gray_radon_img_normalized = (sinogram - np.min(sinogram)) / (
+                        np.max(sinogram) - np.min(sinogram))
+                self._sinogram = sinogram
+                self._randonImg = np.clip(gray_radon_img_normalized * 255.0, 0, 255).astype(np.uint8)
+            img = self._randonImg
+        if self._radon==1 and self._iradon==1:
+            pass
+            # sinogram = self._sinogram
+            # theta = np.linspace(0., 180., sinogram.shape[0], endpoint=False)
+            # reconstructed_image = skimage.transform.iradon(sinogram, theta=theta)
+            # image_iradon = np.clip(reconstructed_image * 255.0, 0, 255).astype(np.uint8)
+            # plt.imshow(image_iradon)
+            # plt.title('Iradon Transform')
+            # plt.show()
+        return img

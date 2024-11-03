@@ -4,6 +4,7 @@ import numpy as np
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from PyQt5.QtCore import QThread, pyqtSignal
 import matplotlib.pyplot as plt
 
 from custom.stackedWidget import StackedWidget
@@ -20,12 +21,14 @@ class MyApp(QMainWindow):
         self.action_left_rotate = QAction(QIcon("icons/左旋转.png"), "向左旋转90°", self)
         self.action_histogram = QAction(QIcon("icons/直方图.png"), "直方图", self)
         self.action_spectrum = QAction(QIcon("icons/spectrum.png"),"频谱图",self)
+        self.action_phase = QAction(QIcon("icons/phase.png"),"相位谱图",self)
         self.action_right_rotate.triggered.connect(self.right_rotate)
         self.action_left_rotate.triggered.connect(self.left_rotate)
         self.action_histogram.triggered.connect(self.histogram)
         self.action_spectrum.triggered.connect(self.spectrum)
-        self.tool_bar.addActions((self.action_left_rotate, self.action_right_rotate, self.action_histogram, self.action_spectrum))
-
+        self.action_phase.triggered.connect(self.phase)
+        self.tool_bar.addActions((self.action_left_rotate, self.action_right_rotate, self.action_histogram,
+                                  self.action_spectrum, self.action_phase))     #  新增按钮频谱 相位
         self.useListWidget = UsedListWidget(self)
         self.funcListWidget = FuncListWidget(self)
         self.stackedWidget = StackedWidget(self)
@@ -60,7 +63,7 @@ class MyApp(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.dock_used)
         self.addDockWidget(Qt.RightDockWidgetArea, self.dock_attr)
 
-        self.setWindowTitle('Opencv图像处理')
+        self.setWindowTitle('Opencv图像处理(LonzoYoshi_Beta_1103)')
         self.setWindowIcon(QIcon('icons/main.png'))
         self.src_img = None
         self.cur_img = None
@@ -119,9 +122,32 @@ class MyApp(QMainWindow):
             plt.yticks([])
             plt.title('Magnitude Spectrum of Color Image')
             plt.show()
-
         else:
             print("图像加载失败，请检查路径和格式。")
+
+    def phase(self):
+        if self.cur_img is not None:
+            cur_img = cv2.cvtColor(self.cur_img, cv2.COLOR_BGR2RGB)
+            b_channel, g_channel, r_channel = cv2.split(cur_img)
+            phase_spectra = []
+            for channel in [b_channel, g_channel, r_channel]:
+                img_float = np.float32(channel)
+                f = cv2.dft(img_float, flags=cv2.DFT_COMPLEX_OUTPUT)
+                fshift = np.fft.fftshift(f)
+                _, phase = cv2.cartToPolar(fshift[:, :, 0], fshift[:, :, 1])
+                # 将相位映射到0-255之间
+                phase_normalized = cv2.normalize(phase, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                phase_spectra.append(phase_normalized)
+            phase_image = cv2.merge(phase_spectra)
+            plt.imshow(phase_image)
+            plt.xticks([])  # 去掉坐标轴刻度
+            plt.yticks([])
+            plt.title('Phase Spectrum of Color Image')
+            plt.show()
+        else:
+            print("图像加载失败，请检查路径和格式。")
+
+
 
 
 if __name__ == "__main__":

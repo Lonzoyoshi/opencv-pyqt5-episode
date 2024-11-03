@@ -112,7 +112,6 @@ class FilterTabledWidget(TableWidget):
         self.setItem(5, 0, QTableWidgetItem('陷波x坐标'))
         self.setCellWidget(5, 1, self.notch_y_box)
 
-
         self.signal_connect()
 
 
@@ -539,7 +538,6 @@ class OperationWidget(TableWidget):
         self.selection_box.addButton(self.select_button, QDialogButtonBox.ActionRole)
         self.setItem(1, 0, QTableWidgetItem('运算方式'))
         self.setCellWidget(1, 1, self.choice_comBox)
-
         self.signal_connect()
 
     def signal_connect(self):
@@ -588,7 +586,6 @@ class OperationWidget(TableWidget):
             if self.selected_img is not None:
                 param['refImg'] = self.selected_img
         return param
-
     def refImg(self):
         # 打开文件对话框让用户选择图片
         options = QFileDialog.Options()
@@ -596,3 +593,27 @@ class OperationWidget(TableWidget):
                                                    "Images (*.png *.xpm *.jpg *.jpeg);;All Files (*)", options=options)
         if file_name:
             self.selected_img = file_name
+
+class RadonWidget(TableWidget):
+    def __init__(self, parent=None):
+        super(RadonWidget, self).__init__(parent=parent)
+        self.radon_spinBox = QSpinBox()
+        self.radon_spinBox.setObjectName('radon')
+        self.radon_spinBox.setMinimum(0)
+        self.radon_spinBox.setMaximum(1)
+        self.radon_spinBox.setSingleStep(1)
+
+        self.irradon_spinBox = QSpinBox()
+        self.irradon_spinBox.setObjectName('iradon')
+        self.irradon_spinBox.setMinimum(0)
+        self.irradon_spinBox.setMaximum(1)
+        self.irradon_spinBox.setSingleStep(1)
+
+        self.setColumnCount(2)
+        self.setRowCount(2)
+        self.setItem(0, 0, QTableWidgetItem('拉东变换'))
+        self.setCellWidget(0, 1, self.radon_spinBox)
+        self.setItem(1, 0, QTableWidgetItem('反拉东变换(未实现)'))
+        self.setCellWidget(1, 1, self.irradon_spinBox)
+        self.signal_connect()
+
