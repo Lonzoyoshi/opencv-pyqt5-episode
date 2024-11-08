@@ -66,7 +66,7 @@ class FilterTabledWidget(TableWidget):
         super(FilterTabledWidget, self).__init__(parent=parent)
 
         self.kind_comBox = QComboBox()
-        self.kind_comBox.addItems(['均值滤波', '高斯滤波', '中值滤波','Box滤波',
+        self.kind_comBox.addItems(['均值滤波', '高斯滤波', '中值滤波','最大值滤波','最小值滤波','Box滤波',
                                    '低通滤波','高通滤波','增强','同态滤波','陷波滤波'])
         self.kind_comBox.setObjectName('kind')
 
@@ -109,7 +109,7 @@ class FilterTabledWidget(TableWidget):
         self.setCellWidget(3,1, self.cutoff_box)
         self.setItem(4, 0, QTableWidgetItem('陷波x坐标'))
         self.setCellWidget(4, 1, self.notch_x_box)
-        self.setItem(5, 0, QTableWidgetItem('陷波x坐标'))
+        self.setItem(5, 0, QTableWidgetItem('陷波y坐标'))
         self.setCellWidget(5, 1, self.notch_y_box)
 
         self.signal_connect()

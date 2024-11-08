@@ -18,7 +18,7 @@ class GraphicsView(QGraphicsView):
         self.setDragMode(QGraphicsView.ScrollHandDrag)  # 设置拖动
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setMinimumSize(640, 480)
+        self.setMinimumSize(800, 600)
 
     def contextMenuEvent(self, event):
         if not self.has_photo():

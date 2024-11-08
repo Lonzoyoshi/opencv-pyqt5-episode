@@ -58,6 +58,20 @@ class FilterItem(MyItem):
             img = cv2.GaussianBlur(img, (self._ksize, self._ksize), self._sigmax)
         elif self._kind == MEDIAN_FILTER:
             img = cv2.medianBlur(img, self._ksize)
+        elif self._kind == MAX_FILTER:
+            b, g, r = cv2.split(img)
+            kernel = np.ones((self._ksize, self._ksize), np.uint8)
+            b = cv2.dilate(b, kernel)
+            g = cv2.dilate(g, kernel)
+            r = cv2.dilate(r, kernel)
+            img = cv2.merge([b, g, r])
+        elif self._kind == MIN_FILTER:
+            b, g, r = cv2.split(img)
+            kernel = np.ones((self._ksize, self._ksize), np.uint8)
+            b = cv2.erode(b, kernel)
+            g = cv2.erode(g, kernel)
+            r = cv2.erode(r, kernel)
+            img = cv2.merge([b, g, r])
         elif self._kind == BOX_FILTER:
             img = cv2.boxFilter(img, -1, (self._ksize, self._ksize))
         elif self._kind == LOW_PASS:
@@ -72,49 +86,115 @@ class FilterItem(MyItem):
             img = filters.butterworth(img, self._cutoff, True)
             img = np.clip(img * 255, 0, 255).astype(np.uint8)
         elif self._kind == LAPLACIAN_ENHANCE:
-            kernel1 = np.array([[1, 1, 1], [1, -8, 1], [1, 1, 1]])
+            kernel1 = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]])
             laplacian = cv2.filter2D(img, cv2.CV_64F, kernel1)
             laplacian = cv2.convertScaleAbs(laplacian)
             sharpened = cv2.addWeighted(img, 1.5, laplacian, -0.5, 0)
             img = sharpened
         elif self._kind == HOMO_FILTER:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            gray = np.float64(gray)
-            rows, cols = gray.shape
+            # 读取彩色图像并转换为浮点数
+            img_bgr = np.float64(img)
+            blue, green, red = cv2.split(img_bgr)
+
+            # 同态滤波的参数
             r1 = 0.5
             rh = 2
             c = 4
             h = 2.0
             l = 0.5
-            gray_fft = np.fft.fft2(gray)
-            gray_fftshift = np.fft.fftshift(gray_fft)
-            dst_fftshift = np.zeros_like(gray_fftshift)
+            rows, cols = blue.shape
+
+            # 创建频域滤波器
             M, N = np.meshgrid(np.arange(-cols // 2, cols // 2), np.arange(-rows // 2, rows // 2))
             D = np.sqrt(M ** 2 + N ** 2)
             Z = (rh - r1) * (1 - np.exp(-c * (D ** 2 / self._cutoffSize ** 2))) + r1
-            dst_fftshift = Z * gray_fftshift
-            dst_fftshift = (h - l) * dst_fftshift + l
-            dst_ifftshift = np.fft.ifftshift(dst_fftshift)
-            dst_ifft = np.fft.ifft2(dst_ifftshift)
-            dst = np.real(dst_ifft)
-            dst = np.uint8(np.clip(dst, 0, 255))
-            img = dst
+
+            # 同态滤波函数
+            def homomorphic_filter_channel(channel):
+                channel_fft = np.fft.fft2(channel)
+                channel_fftshift = np.fft.fftshift(channel_fft)
+                dst_fftshift = Z * channel_fftshift
+                dst_fftshift = (h - l) * dst_fftshift + l
+                dst_ifftshift = np.fft.ifftshift(dst_fftshift)
+                dst_ifft = np.fft.ifft2(dst_ifftshift)
+                dst = np.real(dst_ifft)
+                return np.uint8(np.clip(dst, 0, 255))
+
+            # 对每个通道进行同态滤波
+            blue_filtered = homomorphic_filter_channel(blue)
+            green_filtered = homomorphic_filter_channel(green)
+            red_filtered = homomorphic_filter_channel(red)
+
+            # 合并处理后的通道
+            filtered_img = cv2.merge([blue_filtered, green_filtered, red_filtered])
+
+            # 输出处理后的彩色图像
+            img = filtered_img
+        #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        #     gray = np.float64(gray)
+        #     rows, cols = gray.shape
+        #     r1 = 0.5
+        #     rh = 2
+        #     c = 4
+        #     h = 2.0
+        #     l = 0.5
+        #     gray_fft = np.fft.fft2(gray)
+        #     gray_fftshift = np.fft.fftshift(gray_fft)
+        #     dst_fftshift = np.zeros_like(gray_fftshift)
+        #     M, N = np.meshgrid(np.arange(-cols // 2, cols // 2), np.arange(-rows // 2, rows // 2))
+        #     D = np.sqrt(M ** 2 + N ** 2)
+        #     Z = (rh - r1) * (1 - np.exp(-c * (D ** 2 / self._cutoffSize ** 2))) + r1
+        #     dst_fftshift = Z * gray_fftshift
+        #     dst_fftshift = (h - l) * dst_fftshift + l
+        #     dst_ifftshift = np.fft.ifftshift(dst_fftshift)
+        #     dst_ifft = np.fft.ifft2(dst_ifftshift)
+        #     dst = np.real(dst_ifft)
+        #     dst = np.uint8(np.clip(dst, 0, 255))
+        #     img = dst
         elif self._kind == NOTCH_FILTER:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            gray = np.float64(gray)
-            rows, cols = gray.shape
+            # 将输入图像转换为浮动的BGR格式
+            img_float = np.float64(img)
+            rows, cols, channels = img.shape
             crow, ccol = rows // 2, cols // 2
+
+            # 定义陷波滤波器中心
             notch_centers = [(ccol + self._notch_x, crow + self._notch_y), (ccol - self._notch_x, crow - self._notch_y)]
+
+            # 创建一个全为1的掩码
             mask = np.ones((rows, cols), np.float32)
             for center in notch_centers:
-                cv2.circle(mask, center, self._cutoffSize, 0, thickness=-1)
-            f = np.fft.fft2(gray)
-            fshift = np.fft.fftshift(f)
-            fshift_filtered = fshift * mask
-            img_back = np.fft.ifft2(np.fft.ifftshift(fshift_filtered))
-            dst = np.real(img_back)
-            dst = np.uint8(np.clip(dst, 0, 255))
-            img = dst
+                cv2.circle(mask, center, self._cutoffSize, 0, thickness=-1)  # 画圈设置为0，表示掩掉该区域
+
+            # 为每个颜色通道应用陷波滤波
+            filtered_channels = []
+            for c in range(channels):
+                channel = img_float[:, :, c]  # 获取每个通道
+                f = np.fft.fft2(channel)  # 对每个通道做FFT
+                fshift = np.fft.fftshift(f)  # 将低频移到中心
+                fshift_filtered = fshift * mask  # 应用陷波滤波器
+                img_back = np.fft.ifft2(np.fft.ifftshift(fshift_filtered))  # 反FFT
+                dst = np.real(img_back)  # 取实部
+                dst = np.uint8(np.clip(dst, 0, 255))  # 转换为8位整数，并裁剪像素值到0-255范围
+                filtered_channels.append(dst)  # 存储滤波后的每个通道
+
+            # 合并滤波后的通道
+            filtered_img = cv2.merge(filtered_channels)  # 合并为一个彩色图像
+            img = filtered_img
+            # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # gray = np.float64(gray)
+            # rows, cols = gray.shape
+            # crow, ccol = rows // 2, cols // 2
+            # notch_centers = [(ccol + self._notch_x, crow + self._notch_y), (ccol - self._notch_x, crow - self._notch_y)]
+            # mask = np.ones((rows, cols), np.float32)
+            # for center in notch_centers:
+            #     cv2.circle(mask, center, self._cutoffSize, 0, thickness=-1)
+            # f = np.fft.fft2(gray)
+            # fshift = np.fft.fftshift(f)
+            # fshift_filtered = fshift * mask
+            # img_back = np.fft.ifft2(np.fft.ifftshift(fshift_filtered))
+            # dst = np.real(img_back)
+            # dst = np.uint8(np.clip(dst, 0, 255))
+            # img = dst
 
         return img
 
